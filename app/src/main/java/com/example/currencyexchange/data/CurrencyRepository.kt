@@ -18,17 +18,28 @@ class CurrencyRepository(
 
     private fun getToday(): String = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
 
-    suspend fun refreshRatesFromApi() {
-        val response = api.getLatestRates(baseCurrency = "USD")
-        if (response.isSuccessful) {
-            val body = response.body() ?: return
-            val today = getToday()
-            val entities = body.conversion_rates.map { (code, rate) ->
-                CurrencyEntity(code, today, rate, body.time_last_update_unix)
-            }
-            dao.insertRates(entities)
+    suspend fun refreshRatesFromApi(): Boolean {
+        return try {
+            val response = api.getLatestRates(baseCurrency = "USD")
 
-            cleanUpOldData()
+            if (response.isSuccessful) {
+                val body = response.body() ?: return false
+
+                val today = getToday()
+                val entities = body.conversion_rates.map { (code, rate) ->
+                    CurrencyEntity(code, today, rate, body.time_last_update_unix)
+                }
+
+                dao.insertRates(entities)
+                cleanUpOldData()
+
+                true
+            } else {
+                false
+            }
+        } catch (e: Exception) {
+            Log.e("REPO", "Błąd sieci podczas pobierania danych z API", e)
+            false
         }
     }
 
