@@ -21,10 +21,11 @@ class CurrencyRepository(
     suspend fun refreshRatesFromApi() {
         val response = api.getLatestRates(baseCurrency = "USD")
         if (response.isSuccessful) {
+            val body = response.body() ?: return
             val today = getToday()
-            val entities = response.body()?.conversion_rates?.map { (code, rate) ->
-                CurrencyEntity(code, today, rate, response.body()!!.time_last_update_unix)
-            } ?: emptyList()
+            val entities = body.conversion_rates.map { (code, rate) ->
+                CurrencyEntity(code, today, rate, body.time_last_update_unix)
+            }
             dao.insertRates(entities)
 
             cleanUpOldData()
