@@ -80,4 +80,7 @@ dependencies {
     implementation("androidx.room:room-ktx:$room_version")
     add("kapt", "androidx.room:room-compiler:$room_version")
 
+    val work_version = "2.9.0"
+    implementation("androidx.work:work-runtime-ktx:$work_version")
+
 }
