@@ -21,10 +21,15 @@ class SyncRatesWorker(
             val database = AppDatabase.getDatabase(applicationContext)
             val repository = CurrencyRepository(RetrofitClient.api, database.currencyDao(), sharedPrefs)
 
-            repository.refreshRatesFromApi()
+            val refreshSucceeded = repository.refreshRatesFromApi()
 
-            Log.d("WORKER", "Sukces! Pobrane dane zapisano do bazy Room i posprzątano stare.")
-            Result.success()
+            if (refreshSucceeded) {
+                Log.d("WORKER", "Sukces! Pobrane dane zapisano do bazy Room i posprzątano stare.")
+                Result.success()
+            } else {
+                Log.w("WORKER", "Synchronizacja nie powiodła się - brak poprawnej odpowiedzi z API.")
+                if (runAttemptCount < 3) Result.retry() else Result.failure()
+            }
         } catch (e: Exception) {
             Log.e("WORKER", "Błąd podczas pobierania w tle", e)
             Result.retry()
