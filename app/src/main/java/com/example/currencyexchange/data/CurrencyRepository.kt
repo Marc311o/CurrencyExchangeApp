@@ -13,7 +13,7 @@ import com.example.currencyexchange.data.remote.ExchangeRateApi
 
 class CurrencyRepository(
     private val api: ExchangeRateApi,
-    private val dao: CurrencyDao,
+    val dao: CurrencyDao,
     private val sharedPreferences: SharedPreferences) {
 
     private fun getToday(): String = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
@@ -45,6 +45,10 @@ class CurrencyRepository(
 
     suspend fun getRawRatesFromDatabase(): List<CurrencyEntity> {
         return dao.getRatesForDate(getToday())
+    }
+
+    suspend fun getRatesForSpecificDate(dateString: String): List<CurrencyEntity> {
+        return dao.getRatesForDate(dateString)
     }
 
     suspend fun cleanUpOldData() {

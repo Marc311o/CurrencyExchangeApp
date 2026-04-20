@@ -1,55 +1,64 @@
 package com.example.currencyexchange
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import com.example.currencyexchange.ui.theme.CurrencyExchangeTheme
-import android.util.Log
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.launch
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import com.example.currencyexchange.data.CurrencyRepository
+import com.example.currencyexchange.data.local.AppDatabase
 import com.example.currencyexchange.data.remote.RetrofitClient
+import com.example.currencyexchange.ui.AppViewModelFactory
+import com.example.currencyexchange.ui.theme.CurrencyExchangeTheme
+import com.example.currencyexchange.worker.SyncRatesWorker
+import java.util.concurrent.TimeUnit
+import androidx.core.content.edit
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-//        enableEdgeToEdge()
-//        setContent {
-//            CurrencyExchangeTheme {
-//                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-//                    Greeting(
-//                        name = "Android",
-//                        modifier = Modifier.padding(innerPadding)
-//                    )
-//                }
-//            }
-//        }
-        lifecycleScope.launch {
-            try {
-                Log.d("API_TEST", "Rozpoczynam pobieranie danych...")
 
-                val response = RetrofitClient.api.getLatestRates(baseCurrency = "PLN")
+        val masterKey = MasterKey.Builder(applicationContext)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
 
-                if (response.isSuccessful) {
-                    val body = response.body()
-                    val eurRate = body?.conversion_rates?.get("EUR")
-                    val usdRate = body?.conversion_rates?.get("USD")
+        val encryptedPrefs = EncryptedSharedPreferences.create(
+            applicationContext,
+            "secret_settings",
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
 
-                    Log.d("API_TEST", "Sukces! Kurs EUR: $eurRate, Kurs USD: $usdRate")
-                    Log.d("API_TEST", "Czas aktualizacji (UNIX): ${body?.time_last_update_unix}")
-                } else {
-                    Log.e("API_TEST", "Błąd serwera. Kod błędu: ${response.code()}")
-                }
-            } catch (e: Exception) {
-                Log.e("API_TEST", "Błąd sieci lub konwersji: ${e.message}")
+        encryptedPrefs.edit { putString("API_KEY", "TWOJ_KLUCZ_API_Z_EXCHANGERATE") }
+
+        val database = AppDatabase.getDatabase(applicationContext)
+
+        val repository = CurrencyRepository(
+            api = RetrofitClient.api,
+            dao = database.currencyDao(),
+            sharedPreferences = encryptedPrefs
+        )
+
+        val factory = AppViewModelFactory(repository, encryptedPrefs)
+
+        setContent {
+            CurrencyExchangeTheme {
+                MainScreen(factory = factory)
             }
         }
+
+//        TODO - Uncomment to enable periodic sync of rates every 12 hours
+//        val syncRequest = PeriodicWorkRequestBuilder<SyncRatesWorker>(12, TimeUnit.HOURS).build()
+//        WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
+//            "DailyRateSync",
+//            ExistingPeriodicWorkPolicy.KEEP,
+//            syncRequest
+//        )
     }
 }
