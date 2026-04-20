@@ -64,7 +64,7 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
-    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.material3)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -74,13 +74,18 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     implementation(libs.retrofit)
     implementation("com.squareup.retrofit2:converter-gson:3.0.0")
-
     val room_version = "2.6.1"
     implementation("androidx.room:room-runtime:$room_version")
     implementation("androidx.room:room-ktx:$room_version")
     add("kapt", "androidx.room:room-compiler:$room_version")
-
     val work_version = "2.9.0"
     implementation("androidx.work:work-runtime-ktx:$work_version")
-
+    implementation("androidx.navigation:navigation-compose:2.7.7")
+    val vicoVersion = "1.14.0"
+    implementation("com.patrykandpatrick.vico:compose:$vicoVersion")
+    implementation("com.patrykandpatrick.vico:compose-m3:$vicoVersion")
+    implementation("com.patrykandpatrick.vico:core:$vicoVersion")
+    implementation("androidx.compose.material:material-icons-extended")
+    implementation("androidx.security:security-crypto-ktx:1.1.0-alpha06")
+    implementation("androidx.compose.material:material")
 }
