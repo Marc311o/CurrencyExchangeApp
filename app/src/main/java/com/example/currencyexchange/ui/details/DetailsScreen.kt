@@ -1,5 +1,6 @@
 package com.example.currencyexchange.ui.details
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,7 +25,13 @@ import com.patrykandpatrick.vico.core.entry.entryModelOf
 import androidx.compose.material.icons.filled.TrendingDown
 import androidx.compose.material.icons.filled.TrendingFlat
 import androidx.compose.material.icons.filled.TrendingUp
-
+import com.example.currencyexchange.ui.home.CustomGreen
+import com.example.currencyexchange.ui.home.CustomRed
+import com.patrykandpatrick.vico.compose.chart.line.lineSpec
+import com.patrykandpatrick.vico.compose.component.shape.shader.verticalGradient
+import com.patrykandpatrick.vico.core.chart.values.AxisValuesOverrider
+import com.patrykandpatrick.vico.core.axis.AxisItemPlacer
+import com.patrykandpatrick.vico.compose.component.textComponent
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DetailsScreen(
@@ -42,14 +49,16 @@ fun DetailsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Szczegóły waluty") },
+                title = { Text("Szczegóły waluty", color = Color.Black) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Wstecz")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
-        }
+        },
+        containerColor = Color(0xFFFAFAFA)
     ) { padding ->
         Column(
             modifier = Modifier
@@ -58,19 +67,27 @@ fun DetailsScreen(
                 .verticalScroll(rememberScrollState())
         ) {
             Card(
-                modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                modifier = Modifier
+                    .padding(16.dp)
+                    .fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.Gray)
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
             ) {
                 Column(modifier = Modifier.padding(24.dp)) {
                     Text(
                         text = "${state.currencyCode} - ${state.currencyName}",
                         fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
                     )
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    InfoRow("Aktualny kurs", "${state.currentRate} zł", isBold = true)
+                    InfoRow(
+                        "Aktualny kurs",
+                        "${state.currentRate} ${state.baseCurrency}",
+                        isBold = true
+                    )
                     InfoRow("Zmiana (poprzedni dzień)", state.changeText)
 
                     Row(
@@ -78,7 +95,7 @@ fun DetailsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(text = "Trend", fontSize = 14.sp)
+                        Text(text = "Trend", fontSize = 14.sp, color = Color.Black)
                         TrendIcon(state.isUp)
                     }
 
@@ -92,7 +109,9 @@ fun DetailsScreen(
             }
 
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 RangeChip("7 dni", selectedRange == 7) { selectedRange = 7 }
@@ -117,13 +136,17 @@ fun DetailsScreen(
                         color = Color.Gray
                     )
                 } else {
-                    VicoChart(state.chartPoints)
+                    if (state.chartPoints.isNotEmpty()) {
+                        VicoChart(points = state.chartPoints, isUp = state.isUp)
+                    }
                 }
             }
 
             Text(
                 text = "Dane pobrane z: exchangerate-api.com",
-                modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 32.dp),
                 textAlign = TextAlign.Center,
                 fontSize = 12.sp,
                 color = Color.Gray
@@ -145,14 +168,17 @@ fun TrendIcon(isUp: Boolean?) {
 @Composable
 fun InfoRow(label: String, value: String, isBold: Boolean = false) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(text = label, fontSize = 14.sp)
+        Text(text = label, fontSize = 14.sp, color = Color.Black)
         Text(
             text = value,
             fontSize = 14.sp,
-            fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal
+            fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal,
+            color = Color.Black
         )
     }
 }
@@ -164,25 +190,77 @@ fun RangeChip(label: String, isSelected: Boolean, onClick: () -> Unit) {
         selected = isSelected,
         onClick = onClick,
         label = { Text(label) },
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(16.dp),
     )
 }
 
 @Composable
-fun VicoChart(points: List<ChartPoint>) {
-    val model = entryModelOf(*points.mapIndexed { index, point -> index to point.value }.toTypedArray())
+fun VicoChart(points: List<ChartPoint>, isUp: Boolean?) {
+    if (points.isEmpty()) return
 
-    val horizontalAxisValueFormatter = AxisValueFormatter<com.patrykandpatrick.vico.core.axis.AxisPosition.Horizontal.Bottom> { value, _ ->
-        val index = value.toInt()
-        if (index in points.indices) points[index].date.substring(5) else ""
+    val model =
+        entryModelOf(*points.mapIndexed { index, point -> index to point.value }.toTypedArray())
+
+    val minY = points.minOf { it.value }
+    val maxY = points.maxOf { it.value }
+    val range = if (maxY == minY) 0.01f else (maxY - minY)
+    val padding = range * 0.15f
+
+    val horizontalAxisValueFormatter =
+        AxisValueFormatter<com.patrykandpatrick.vico.core.axis.AxisPosition.Horizontal.Bottom> { value, _ ->
+            val index = value.toInt()
+            if (index in points.indices) points[index].date.substring(5) else ""
+        }
+
+    val verticalAxisValueFormatter =
+        AxisValueFormatter<com.patrykandpatrick.vico.core.axis.AxisPosition.Vertical.Start> { value, _ ->
+            String.format(java.util.Locale.getDefault(), "%.4f", value)
+        }
+
+    val lineColor = when (isUp) {
+        true -> CustomGreen
+        false -> CustomRed
+        null -> Color.Gray
     }
 
+    val axisLabel = textComponent(
+        color = Color.Black,
+        textSize = 10.sp
+    )
+
     Chart(
-        chart = lineChart(),
+        chart = lineChart(
+            lines = listOf(
+                lineSpec(
+                    lineColor = lineColor,
+                    lineBackgroundShader = verticalGradient(
+                        colors = arrayOf(
+                            lineColor.copy(alpha = 0.4f),
+                            lineColor.copy(alpha = 0.0f)
+                        )
+                    )
+                )
+            ),
+
+            axisValuesOverrider = AxisValuesOverrider.fixed(
+                minY = minY - padding,
+                maxY = maxY + padding
+            )
+        ),
         model = model,
-        startAxis = rememberStartAxis(),
-        bottomAxis = rememberBottomAxis(valueFormatter = horizontalAxisValueFormatter),
-        modifier = Modifier.fillMaxSize()
+        startAxis = rememberStartAxis(
+            label = axisLabel,
+            valueFormatter = verticalAxisValueFormatter,
+            itemPlacer = AxisItemPlacer.Vertical.default(maxItemCount = 5),
+        ),
+        bottomAxis = rememberBottomAxis(
+            label = axisLabel,
+            valueFormatter = horizontalAxisValueFormatter,
+            labelRotationDegrees = -45f
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(280.dp)
     )
 }
 

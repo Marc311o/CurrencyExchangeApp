@@ -6,6 +6,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import android.util.Log
+import com.example.currencyexchange.BuildConfig
 import com.example.currencyexchange.data.local.CurrencyDao
 import com.example.currencyexchange.data.local.CurrencyEntity
 import com.example.currencyexchange.data.remote.ExchangeRateApi
@@ -20,14 +21,20 @@ class CurrencyRepository(
 
     suspend fun refreshRatesFromApi(): Boolean {
         return try {
-            val response = api.getLatestRates(baseCurrency = "USD")
+            val apiKey = sharedPreferences.getString("API_KEY", BuildConfig.API_KEY) ?: BuildConfig.API_KEY
+
+            val response = api.getLatestRates(
+                apiKey = apiKey,
+                baseCurrency = "USD"
+            )
+
 
             if (response.isSuccessful) {
                 val body = response.body() ?: return false
 
                 val today = getToday()
                 val entities = body.conversion_rates.map { (code, rate) ->
-                    CurrencyEntity(code, today, rate, body.time_last_update_unix)
+                    CurrencyEntity(code, today, rate, body.time_last_update_unix * 1000L)
                 }
 
                 dao.insertRates(entities)

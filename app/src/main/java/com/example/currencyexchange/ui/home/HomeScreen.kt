@@ -1,5 +1,7 @@
 package com.example.currencyexchange.ui.home
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,7 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.Locale
 
-val CustomGreen = Color(0xFF4CAF50)
+val CustomGreen = Color(0xFF2B672C)
 val CustomRed = Color(0xFFE53935)
 val CustomGray = Color(0xFFF5F5F5)
 
@@ -35,10 +37,18 @@ fun HomeScreen(
     onCurrencyClick: (String) -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
+    val decimalPlaces by viewModel.decimalPlaces.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.refreshSettings()
+    }
+
+    val format = "%.${decimalPlaces}f"
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(Color(0xFFFAFAFA))
             .padding(top = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -100,9 +110,10 @@ fun HomeScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    Box(modifier = Modifier
-                        .fillMaxSize()
-                        .pullRefresh(pullRefreshState)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .pullRefresh(pullRefreshState)
                     ) {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
@@ -111,6 +122,8 @@ fun HomeScreen(
                             items(currentState.rates) { currency ->
                                 CurrencyCard(
                                     currency = currency,
+                                    baseCurrency = currentState.baseCurrency,
+                                    decimalPlaces = decimalPlaces,
                                     onClick = { onCurrencyClick(currency.code) }
                                 )
                             }
@@ -130,14 +143,22 @@ fun HomeScreen(
 }
 
 @Composable
-fun CurrencyCard(currency: CurrencyUiModel, onClick: () -> Unit) {
+fun CurrencyCard(currency: CurrencyUiModel, baseCurrency: String, decimalPlaces: Int, onClick: () -> Unit) {
+
+    val dynamicFormat = "%.${decimalPlaces}f %s"
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 16.dp, vertical = 6.dp)
             .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = CustomGray)
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White,
+            contentColor = Color.Black
+        ),
+        border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
@@ -147,32 +168,65 @@ fun CurrencyCard(currency: CurrencyUiModel, onClick: () -> Unit) {
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
                 Text(text = "Aktualny kurs", fontSize = 14.sp)
-                Text(text = String.format(Locale.getDefault(), "%.4f zł", currency.rate), fontWeight = FontWeight.Bold)
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(text = "Zmiana", fontSize = 14.sp)
-                val sign = if (currency.changeValue > 0) "+" else ""
                 Text(
-                    text = "${sign}${String.format(Locale.getDefault(), "%.2f", currency.changeValue)} zł (${sign}${String.format(Locale.getDefault(), "%.2f", currency.changePercent)}%)",
-                    fontSize = 14.sp
+                    text = String.format(
+                        Locale.getDefault(),
+                        dynamicFormat,
+                        currency.rate,
+                        baseCurrency
+                    ), fontWeight = FontWeight.Bold
                 )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(text = "Zmiana", fontSize = 14.sp)
+                val sign = if (currency.changeValue > 0) "+" else ""
+                Text(
+                    text = "${sign}${
+                        String.format(
+                            Locale.getDefault(),
+                            "%.2f",
+                            currency.changeValue
+                        )
+                    } $baseCurrency (${sign}${
+                        String.format(
+                            Locale.getDefault(),
+                            "%.2f",
+                            currency.changePercent
+                        )
+                    }%)", fontSize = 14.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(text = "Trend", fontSize = 14.sp)
                 val (icon, color) = when (currency.isUp) {
                     true -> Icons.AutoMirrored.Filled.TrendingUp to CustomGreen
                     false -> Icons.AutoMirrored.Filled.TrendingDown to CustomRed
                     null -> Icons.AutoMirrored.Filled.TrendingFlat to Color.Gray
                 }
-                Icon(imageVector = icon, contentDescription = "Trend", tint = color, modifier = Modifier.size(20.dp))
+                Icon(
+                    imageVector = icon,
+                    contentDescription = "Trend",
+                    tint = color,
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
     }

@@ -17,6 +17,9 @@ import com.example.currencyexchange.ui.theme.CurrencyExchangeTheme
 import com.example.currencyexchange.worker.SyncRatesWorker
 import java.util.concurrent.TimeUnit
 import androidx.core.content.edit
+import androidx.lifecycle.lifecycleScope
+import com.example.currencyexchange.data.local.DatabaseSeeder
+import kotlinx.coroutines.launch
 
 
 class MainActivity : ComponentActivity() {
@@ -35,7 +38,7 @@ class MainActivity : ComponentActivity() {
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
         )
 
-        encryptedPrefs.edit { putString("API_KEY", "TWOJ_KLUCZ_API_Z_EXCHANGERATE") }
+        encryptedPrefs.edit { putString("API_KEY", BuildConfig.API_KEY) }
 
         val database = AppDatabase.getDatabase(applicationContext)
 
@@ -47,18 +50,21 @@ class MainActivity : ComponentActivity() {
 
         val factory = AppViewModelFactory(repository, encryptedPrefs)
 
+        lifecycleScope.launch {
+            DatabaseSeeder.seedDatabase(database.currencyDao())
+        }
+
         setContent {
             CurrencyExchangeTheme {
                 MainScreen(factory = factory)
             }
         }
 
-//        TODO - Uncomment to enable periodic sync of rates every 12 hours
-//        val syncRequest = PeriodicWorkRequestBuilder<SyncRatesWorker>(12, TimeUnit.HOURS).build()
-//        WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
-//            "DailyRateSync",
-//            ExistingPeriodicWorkPolicy.KEEP,
-//            syncRequest
-//        )
+        val syncRequest = PeriodicWorkRequestBuilder<SyncRatesWorker>(12, TimeUnit.HOURS).build()
+        WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
+            "DailyRateSync",
+            ExistingPeriodicWorkPolicy.KEEP,
+            syncRequest
+        )
     }
 }

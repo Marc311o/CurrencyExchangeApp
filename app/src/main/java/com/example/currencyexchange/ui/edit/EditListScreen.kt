@@ -1,10 +1,12 @@
 package com.example.currencyexchange.ui.edit
 
 import android.content.SharedPreferences
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.StarBorder
@@ -58,36 +60,58 @@ fun EditListScreen(viewModel: EditListViewModel) {
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Zarządzaj walutami") }) }
+        topBar = {
+            TopAppBar(
+                title = { Text("Zarządzaj walutami", color = Color.Black) },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+            )
+        },
+        containerColor = Color(0xFFFAFAFA)
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { viewModel.updateSearchQuery(it) },
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
-                placeholder = { Text("Szukaj waluty (np. EUR)") },
-                singleLine = true
+                placeholder = { Text("Szukaj waluty...") },
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedContainerColor = Color.White,
+                    focusedContainerColor = Color.White,
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black
+                ),
+                shape = RoundedCornerShape(12.dp)
             )
 
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(filteredCurrencies) { code ->
-                    val isFav = favorites.contains(code)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { viewModel.toggleFavorite(code) }
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(text = code, style = MaterialTheme.typography.titleMedium)
-                        Icon(
-                            imageVector = if (isFav) Icons.Filled.Star else Icons.Outlined.StarBorder,
-                            contentDescription = "Ulubione",
-                            tint = if (isFav) Color(0xFFFFC107) else Color.Gray
-                        )
+            Card(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                LazyColumn {
+                    items(filteredCurrencies) { code ->
+                        val isFav = favorites.contains(code)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { viewModel.toggleFavorite(code) }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(text = code, style = MaterialTheme.typography.titleMedium, color = Color.Black)
+                            Icon(
+                                imageVector = if (isFav) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                                contentDescription = "Ulubione",
+                                tint = if (isFav) Color(0xFFFFC107) else Color.Gray
+                            )
+                        }
+                        HorizontalDivider(
+                            color = Color(0xFFE0E0E0),
+                            thickness = 1.dp,
+                            modifier = Modifier.padding(horizontal = 16.dp))
                     }
-                    HorizontalDivider()
                 }
             }
         }

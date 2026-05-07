@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 
 
@@ -41,6 +42,9 @@ class HomeViewModel(
     private val _uiState = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
+    private val _decimalPlaces = MutableStateFlow(sharedPreferences.getInt("DECIMAL_PLACES", 4))
+    val decimalPlaces = _decimalPlaces.asStateFlow()
+
     init {
         loadRates()
     }
@@ -49,6 +53,10 @@ class HomeViewModel(
         val calendar = Calendar.getInstance()
         calendar.add(Calendar.DAY_OF_YEAR, -daysAgo)
         return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(calendar.time)
+    }
+
+    fun refreshSettings() {
+        _decimalPlaces.value = sharedPreferences.getInt("DECIMAL_PLACES", 4)
     }
 
     fun loadRates(showLoadingScreen: Boolean = true) {
@@ -96,9 +104,17 @@ class HomeViewModel(
                             }
                         }
 
+                        val currencyFullName = try {
+                            val currency = java.util.Currency.getInstance(todayEntity.currencyCode)
+                            val displayName = currency.getDisplayName(Locale.getDefault())
+                            displayName.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+                        } catch (e: Exception) {
+                            "Nieznana waluta"
+                        }
+
                         CurrencyUiModel(
                             code = todayEntity.currencyCode,
-                            name = todayEntity.currencyCode,
+                            name = currencyFullName,
                             rate = currentRate,
                             changeValue = changeValue,
                             changePercent = changePercent,
@@ -109,9 +125,14 @@ class HomeViewModel(
                     val favorites = sharedPreferences.getStringSet("FAVORITES", setOf("EUR", "USD", "GBP", "CHF")) ?: setOf("EUR", "USD", "GBP", "CHF")
                     val filteredUiModels = uiModels.filter { favorites.contains(it.code) }
 
+                    val formattedTime = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+                        .format(
+                            Date(todayRates.firstOrNull()?.lastUpdateTime ?: System.currentTimeMillis())
+                        )
+
                     _uiState.value = HomeUiState.Success(
                         isOnline = true,
-                        lastUpdateText = "Dane z: $today",
+                        lastUpdateText = "Dane z: $formattedTime",
                         baseCurrency = userBaseCurrency,
                         rates = filteredUiModels
                     )
