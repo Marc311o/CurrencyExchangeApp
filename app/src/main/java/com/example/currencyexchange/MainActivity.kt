@@ -1,6 +1,5 @@
 package com.example.currencyexchange
 
-import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -18,7 +17,6 @@ import com.example.currencyexchange.worker.SyncRatesWorker
 import java.util.concurrent.TimeUnit
 import androidx.core.content.edit
 
-
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,7 +33,7 @@ class MainActivity : ComponentActivity() {
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
         )
 
-        encryptedPrefs.edit { putString("API_KEY", "TWOJ_KLUCZ_API_Z_EXCHANGERATE") }
+        encryptedPrefs.edit { putString("API_KEY", BuildConfig.API_KEY) }
 
         val database = AppDatabase.getDatabase(applicationContext)
 
@@ -46,19 +44,19 @@ class MainActivity : ComponentActivity() {
         )
 
         val factory = AppViewModelFactory(repository, encryptedPrefs)
+        val connectivityObserver = com.example.currencyexchange.util.NetworkConnectivityObserver(applicationContext)
 
         setContent {
             CurrencyExchangeTheme {
-                MainScreen(factory = factory)
+                MainScreen(factory = factory, connectivityObserver = connectivityObserver)
             }
         }
 
-//        TODO - Uncomment to enable periodic sync of rates every 12 hours
-//        val syncRequest = PeriodicWorkRequestBuilder<SyncRatesWorker>(12, TimeUnit.HOURS).build()
-//        WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
-//            "DailyRateSync",
-//            ExistingPeriodicWorkPolicy.KEEP,
-//            syncRequest
-//        )
+        val syncRequest = PeriodicWorkRequestBuilder<SyncRatesWorker>(12, TimeUnit.HOURS).build()
+        WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
+            "DailyRateSync",
+            ExistingPeriodicWorkPolicy.KEEP,
+            syncRequest
+        )
     }
 }
