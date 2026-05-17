@@ -19,22 +19,22 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.Locale
 
-val CustomGreen = Color(0xFF2B672C)
-val CustomRed = Color(0xFFE53935)
-val CustomGray = Color(0xFFF5F5F5)
+import com.example.currencyexchange.ui.theme.TrendDown
+import com.example.currencyexchange.ui.theme.TrendUp
+import com.example.currencyexchange.ui.theme.Neutral
 
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
-    onCurrencyClick: (String) -> Unit
+    onCurrencyClick: (String) -> Unit,
+    isOnline: Boolean = true
 ) {
     val state by viewModel.uiState.collectAsState()
     val decimalPlaces by viewModel.decimalPlaces.collectAsState()
@@ -43,12 +43,10 @@ fun HomeScreen(
         viewModel.refreshSettings()
     }
 
-    val format = "%.${decimalPlaces}f"
-
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFFAFAFA))
+            .background(MaterialTheme.colorScheme.background)
             .padding(top = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -56,7 +54,7 @@ fun HomeScreen(
 
             is HomeUiState.Loading -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = CustomGreen)
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             }
 
@@ -65,7 +63,7 @@ fun HomeScreen(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
                             text = currentState.message,
-                            color = CustomRed,
+                            color = MaterialTheme.colorScheme.error,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.padding(16.dp)
                         )
@@ -93,8 +91,8 @@ fun HomeScreen(
 
                 Column(modifier = Modifier.fillMaxSize()) {
                     Text(
-                        text = if (currentState.isOnline) "Online" else "Offline",
-                        color = if (currentState.isOnline) CustomGreen else CustomRed,
+                        text = if (isOnline) "Online" else "Offline",
+                        color = if (isOnline) TrendUp else TrendDown,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.fillMaxWidth(),
@@ -103,7 +101,7 @@ fun HomeScreen(
                     Text(
                         text = currentState.lastUpdateText,
                         fontSize = 12.sp,
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.fillMaxWidth(),
                         textAlign = TextAlign.Center
                     )
@@ -133,7 +131,7 @@ fun HomeScreen(
                             refreshing = isRefreshing,
                             state = pullRefreshState,
                             modifier = Modifier.align(Alignment.TopCenter),
-                            contentColor = CustomGreen
+                            contentColor = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
@@ -154,10 +152,10 @@ fun CurrencyCard(currency: CurrencyUiModel, baseCurrency: String, decimalPlaces:
             .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color.White,
-            contentColor = Color.Black
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
         ),
-        border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -172,7 +170,7 @@ fun CurrencyCard(currency: CurrencyUiModel, baseCurrency: String, decimalPlaces:
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(text = "Aktualny kurs", fontSize = 14.sp)
+                Text(text = "Aktualny kurs", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(
                     text = String.format(
                         Locale.getDefault(),
@@ -189,7 +187,7 @@ fun CurrencyCard(currency: CurrencyUiModel, baseCurrency: String, decimalPlaces:
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(text = "Zmiana", fontSize = 14.sp)
+                Text(text = "Zmiana", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 val sign = if (currency.changeValue > 0) "+" else ""
                 Text(
                     text = "${sign}${
@@ -204,7 +202,8 @@ fun CurrencyCard(currency: CurrencyUiModel, baseCurrency: String, decimalPlaces:
                             "%.2f",
                             currency.changePercent
                         )
-                    }%)", fontSize = 14.sp
+                    }%)", fontSize = 14.sp,
+                    color = if (currency.isUp == true) TrendUp else if (currency.isUp == false) TrendDown else MaterialTheme.colorScheme.onSurface
                 )
             }
 
@@ -215,11 +214,11 @@ fun CurrencyCard(currency: CurrencyUiModel, baseCurrency: String, decimalPlaces:
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "Trend", fontSize = 14.sp)
+                Text(text = "Trend", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 val (icon, color) = when (currency.isUp) {
-                    true -> Icons.AutoMirrored.Filled.TrendingUp to CustomGreen
-                    false -> Icons.AutoMirrored.Filled.TrendingDown to CustomRed
-                    null -> Icons.AutoMirrored.Filled.TrendingFlat to Color.Gray
+                    true -> Icons.AutoMirrored.Filled.TrendingUp to TrendUp
+                    false -> Icons.AutoMirrored.Filled.TrendingDown to TrendDown
+                    null -> Icons.AutoMirrored.Filled.TrendingFlat to Neutral
                 }
                 Icon(
                     imageVector = icon,

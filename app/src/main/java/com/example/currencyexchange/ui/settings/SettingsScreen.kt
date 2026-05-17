@@ -1,6 +1,7 @@
 package com.example.currencyexchange.ui.settings
 
 import android.content.SharedPreferences
+import android.content.res.Configuration
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -17,8 +18,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material.icons.filled.WifiOff
+import androidx.compose.ui.platform.LocalConfiguration
 import com.example.currencyexchange.data.CurrencyRepository
-import com.example.currencyexchange.ui.home.CustomGreen
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -69,7 +73,7 @@ class SettingsViewModel(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel) {
+fun SettingsScreen(viewModel: SettingsViewModel, isOnline: Boolean = true) {
     val currentBase by viewModel.baseCurrency.collectAsState()
     val currentRetention by viewModel.retentionDays.collectAsState()
     val currentInterval by viewModel.refreshInterval.collectAsState()
@@ -79,14 +83,11 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
     val availableCurrencies = listOf("PLN", "USD", "EUR", "GBP", "CHF", "JPY")
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Ustawienia", fontWeight = FontWeight.Bold, color = Color.Black) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
-            )
-        },
-        containerColor = Color(0xFFFAFAFA)
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
+        val configuration = LocalConfiguration.current
+        val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
         Column(
             modifier = Modifier
                 .padding(padding)
@@ -95,89 +96,53 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            SettingsGroup(title = "Waluta bazowa") {
-                Box {
-                    OutlinedButton(
-                        onClick = { currencyDropdownExpanded = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, Color(0xFFE0E0E0))
-                    ) {
-                        Text("Aktualna: $currentBase", color = Color.Black)
+            if (isLandscape) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        SettingsGroup(title = "Waluta bazowa") {
+                            BaseCurrencySelector(currentBase, availableCurrencies) { viewModel.updateBaseCurrency(it) }
+                        }
                     }
-                    DropdownMenu(
-                        expanded = currencyDropdownExpanded,
-                        onDismissRequest = { currencyDropdownExpanded = false },
-                        modifier = Modifier.background(Color.White)
-                    ) {
-                        availableCurrencies.forEach { currency ->
-                            DropdownMenuItem(
-                                text = { Text(currency, color = Color.Black) },
-                                onClick = {
-                                    viewModel.updateBaseCurrency(currency)
-                                    currencyDropdownExpanded = false
-                                }
-                            )
+                    Box(modifier = Modifier.weight(1f)) {
+                        SettingsGroup(title = "Historia wykresów") {
+                            RetentionSlider(currentRetention) { viewModel.updateRetentionDays(it) }
                         }
                     }
                 }
-            }
 
-            SettingsGroup(title = "Częstotliwość odświeżania") {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    listOf(1, 12, 24).forEach { hours ->
-                        FilterChip(
-                            selected = currentInterval == hours,
-                            onClick = { viewModel.updateRefreshInterval(hours) },
-                            label = { Text("${hours}h") },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = CustomGreen,
-                                selectedLabelColor = Color.White
-                            )
-                        )
+                    Box(modifier = Modifier.weight(1f)) {
+                        SettingsGroup(title = "Miejsca po przecinku") {
+                            DecimalPlacesSelector(currentDecimals) { viewModel.updateDecimalPlaces(it) }
+                        }
+                    }
+                    Box(modifier = Modifier.weight(1f)) {
+                        SettingsGroup(title = "Częstotliwość odświeżania") {
+                            RefreshIntervalSelector(currentInterval) { viewModel.updateRefreshInterval(it) }
+                        }
                     }
                 }
-            }
-
-            SettingsGroup(title = "Miejsca po przecinku") {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    listOf(2, 4).forEach { places ->
-                        FilterChip(
-                            selected = currentDecimals == places,
-                            onClick = { viewModel.updateDecimalPlaces(places) },
-                            label = { Text(if (places == 2) "0.00" else "0.0000") },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = CustomGreen,
-                                selectedLabelColor = Color.White
-                            )
-                        )
-                    }
+            } else {
+                SettingsGroup(title = "Waluta bazowa") {
+                    BaseCurrencySelector(currentBase, availableCurrencies) { viewModel.updateBaseCurrency(it) }
                 }
-            }
 
-            SettingsGroup(title = "Historia wykresów") {
-                Column {
-                    Text(
-                        "Przechowuj dane z ostatnich: $currentRetention dni",
-                        fontSize = 14.sp,
-                        color = Color.Black
-                    )
-                    Slider(
-                        value = currentRetention.toFloat(),
-                        onValueChange = { viewModel.updateRetentionDays(it.toInt()) },
-                        valueRange = 7f..90f,
-                        colors = SliderDefaults.colors(
-                            thumbColor = CustomGreen,
-                            activeTrackColor = CustomGreen,
-                            inactiveTrackColor = Color(0xFFE0E0E0)
-                        )
-                    )
+                SettingsGroup(title = "Częstotliwość odświeżania") {
+                    RefreshIntervalSelector(currentInterval) { viewModel.updateRefreshInterval(it) }
+                }
+
+                SettingsGroup(title = "Miejsca po przecinku") {
+                    DecimalPlacesSelector(currentDecimals) { viewModel.updateDecimalPlaces(it) }
+                }
+
+                SettingsGroup(title = "Historia wykresów") {
+                    RetentionSlider(currentRetention) { viewModel.updateRetentionDays(it) }
                 }
             }
 
@@ -187,7 +152,10 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                     .fillMaxWidth()
                     .height(56.dp),
                 shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = CustomGreen, contentColor = Color.White)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
             ) {
                 Text("Wymuś pobranie kursów", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
@@ -196,10 +164,105 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                 text = "Currency Exchange v1.0",
                 modifier = Modifier.fillMaxWidth(),
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp
             )
         }
+    }
+}
+
+@Composable
+fun BaseCurrencySelector(currentBase: String, availableCurrencies: List<String>, onSelect: (String) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        OutlinedButton(
+            onClick = { expanded = true },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+        ) {
+            Text("Aktualna: $currentBase", color = MaterialTheme.colorScheme.onSurface)
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+        ) {
+            availableCurrencies.forEach { currency ->
+                DropdownMenuItem(
+                    text = { Text(currency, color = MaterialTheme.colorScheme.onSurface) },
+                    onClick = {
+                        onSelect(currency)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RefreshIntervalSelector(currentInterval: Int, onSelect: (Int) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        listOf(1, 12, 24).forEach { hours ->
+            FilterChip(
+                selected = currentInterval == hours,
+                onClick = { onSelect(hours) },
+                label = { Text("${hours}h") },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                    labelColor = MaterialTheme.colorScheme.onSurface
+                )
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DecimalPlacesSelector(currentDecimals: Int, onSelect: (Int) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        listOf(2, 4).forEach { places ->
+            FilterChip(
+                selected = currentDecimals == places,
+                onClick = { onSelect(places) },
+                label = { Text(if (places == 2) "0.00" else "0.0000") },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                    labelColor = MaterialTheme.colorScheme.onSurface
+                )
+            )
+        }
+    }
+}
+
+@Composable
+fun RetentionSlider(currentRetention: Int, onValueChange: (Int) -> Unit) {
+    Column {
+        Text(
+            "Dane z ostatnich: $currentRetention dni",
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Slider(
+            value = currentRetention.toFloat(),
+            onValueChange = { onValueChange(it.toInt()) },
+            valueRange = 7f..90f,
+            colors = SliderDefaults.colors(
+                thumbColor = MaterialTheme.colorScheme.primary,
+                activeTrackColor = MaterialTheme.colorScheme.primary,
+                inactiveTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+            )
+        )
     }
 }
 
@@ -210,13 +273,13 @@ fun SettingsGroup(title: String, content: @Composable () -> Unit) {
             text = title.uppercase(),
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
         )
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
             shape = RoundedCornerShape(16.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {

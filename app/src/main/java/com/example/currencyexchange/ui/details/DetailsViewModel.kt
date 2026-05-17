@@ -71,9 +71,19 @@ class DetailsViewModel(
                         targetCode
                     }
 
-                    val latestEntityTime = baseHistory.lastOrNull()?.lastUpdateTime ?: System.currentTimeMillis()
-                    val formatter = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
-                    val formattedTime = formatter.format(Date(latestEntityTime))
+                    val latestEntityTime = baseHistory.firstOrNull()?.lastUpdateTime ?: System.currentTimeMillis()
+                    val cal = java.util.Calendar.getInstance()
+                    cal.timeInMillis = latestEntityTime
+                    
+                    val formattedTime = String.format(
+                        Locale.getDefault(),
+                        "%04d-%02d-%02d %02d:%02d",
+                        cal.get(java.util.Calendar.YEAR),
+                        cal.get(java.util.Calendar.MONTH) + 1,
+                        cal.get(java.util.Calendar.DAY_OF_MONTH),
+                        cal.get(java.util.Calendar.HOUR_OF_DAY),
+                        cal.get(java.util.Calendar.MINUTE)
+                    )
 
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
@@ -81,7 +91,7 @@ class DetailsViewModel(
                         baseCurrency = userBaseCurrency,
                         currentRate = String.format(Locale.getDefault(), "%.4f", latest.value),
                         changeText = String.format(Locale.getDefault(), "%+.2f %s (%+.2f%%)", diff, userBaseCurrency, percent),
-                        isUp = if (diff > 0.0001) true else if (diff < -0.0001) false else null,
+                        isUp = if (diff > 0.000001) true else if (diff < -0.000001) false else null,
                         chartPoints = points,
                         lastUpdate = formattedTime
                     )

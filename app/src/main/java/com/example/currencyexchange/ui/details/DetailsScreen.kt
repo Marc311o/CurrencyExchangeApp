@@ -25,142 +25,205 @@ import com.patrykandpatrick.vico.core.entry.entryModelOf
 import androidx.compose.material.icons.filled.TrendingDown
 import androidx.compose.material.icons.filled.TrendingFlat
 import androidx.compose.material.icons.filled.TrendingUp
-import com.example.currencyexchange.ui.home.CustomGreen
-import com.example.currencyexchange.ui.home.CustomRed
 import com.patrykandpatrick.vico.compose.chart.line.lineSpec
 import com.patrykandpatrick.vico.compose.component.shape.shader.verticalGradient
 import com.patrykandpatrick.vico.core.chart.values.AxisValuesOverrider
 import com.patrykandpatrick.vico.core.axis.AxisItemPlacer
 import com.patrykandpatrick.vico.compose.component.textComponent
+import com.patrykandpatrick.vico.compose.chart.scroll.rememberChartScrollSpec
+import androidx.compose.ui.platform.LocalConfiguration
+import android.content.res.Configuration
+
+import com.example.currencyexchange.ui.theme.TrendDown
+import com.example.currencyexchange.ui.theme.TrendUp
+import com.example.currencyexchange.ui.theme.Neutral
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DetailsScreen(
     currencyCode: String,
     viewModel: DetailsViewModel,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    showBackButton: Boolean = true,
+    forceVerticalLayout: Boolean = false
 ) {
     val state by viewModel.uiState.collectAsState()
     var selectedRange by remember { mutableIntStateOf(30) }
+    val configuration = LocalConfiguration.current
+    
+    val useTwoColumnLayout = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE && !forceVerticalLayout
 
     LaunchedEffect(currencyCode, selectedRange) {
         viewModel.loadDetails(currencyCode, selectedRange)
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Szczegóły waluty", color = Color.Black) },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Wstecz")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
-            )
-        },
-        containerColor = Color(0xFFFAFAFA)
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-        ) {
-            Card(
-                modifier = Modifier
-                    .padding(16.dp)
-                    .fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
-            ) {
-                Column(modifier = Modifier.padding(24.dp)) {
-                    Text(
-                        text = "${state.currencyCode} - ${state.currencyName}",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    InfoRow(
-                        "Aktualny kurs",
-                        "${state.currentRate} ${state.baseCurrency}",
-                        isBold = true
-                    )
-                    InfoRow("Zmiana (poprzedni dzień)", state.changeText)
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(text = "Trend", fontSize = 14.sp, color = Color.Black)
-                        TrendIcon(state.isUp)
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Ostatnia aktualizacja: ${state.lastUpdate}",
-                        fontSize = 11.sp,
-                        color = Color.Gray
-                    )
-                }
-            }
-
+        if (useTwoColumnLayout) {
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .fillMaxSize()
+                    .padding(padding)
             ) {
-                RangeChip("7 dni", selectedRange == 7) { selectedRange = 7 }
-                RangeChip("30 dni", selectedRange == 30) { selectedRange = 30 }
-                RangeChip("90 dni", selectedRange == 90) { selectedRange = 90 }
-            }
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    DetailsInfoCard(state, showBackButton, onBackClick)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    RangeSelectionRow(selectedRange) { selectedRange = it }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    DataSourceFooter()
+                }
 
-            Box(
+                Box(
+                    modifier = Modifier
+                        .weight(1.5f)
+                        .fillMaxHeight()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    ChartSection(state)
+                }
+            }
+        } else {
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(300.dp)
-                    .padding(16.dp)
+                    .fillMaxSize()
+                    .padding(padding)
+                    .verticalScroll(rememberScrollState())
             ) {
-                if (state.isLoading) {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                } else if (state.chartPoints.size < 2) {
-                    Text(
-                        "Zbyt mało danych do narysowania wykresu.\nHistoria buduje się codziennie.",
-                        modifier = Modifier.align(Alignment.Center),
-                        textAlign = TextAlign.Center,
-                        fontSize = 14.sp,
-                        color = Color.Gray
-                    )
-                } else {
-                    if (state.chartPoints.isNotEmpty()) {
-                        VicoChart(points = state.chartPoints, isUp = state.isUp)
+                DetailsInfoCard(state, showBackButton, onBackClick)
+                RangeSelectionRow(selectedRange) { selectedRange = it }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(350.dp)
+                        .padding(16.dp)
+                ) {
+                    ChartSection(state)
+                }
+                DataSourceFooter()
+            }
+        }
+    }
+}
+
+@Composable
+fun DetailsInfoCard(state: DetailsUiState, showBackButton: Boolean, onBackClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .padding(16.dp)
+            .fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+    ) {
+        Column(modifier = Modifier.padding(24.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "${state.currencyCode} - ${state.currencyName}",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
+                if (showBackButton) {
+                    IconButton(onClick = onBackClick) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack, 
+                            contentDescription = "Wstecz",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
                     }
                 }
             }
+            Spacer(modifier = Modifier.height(16.dp))
 
+            InfoRow(
+                "Aktualny kurs",
+                "${state.currentRate} ${state.baseCurrency}",
+                isBold = true
+            )
+            InfoRow("Zmiana", state.changeText)
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "Trend", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                TrendIcon(state.isUp)
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Dane pobrane z: exchangerate-api.com",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 32.dp),
-                textAlign = TextAlign.Center,
-                fontSize = 12.sp,
-                color = Color.Gray
+                text = "Ostatnia aktualizacja: ${state.lastUpdate}",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
 }
 
 @Composable
+fun RangeSelectionRow(selectedRange: Int, onRangeSelected: (Int) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        RangeChip("7 dni", selectedRange == 7) { onRangeSelected(7) }
+        RangeChip("30 dni", selectedRange == 30) { onRangeSelected(30) }
+        RangeChip("90 dni", selectedRange == 90) { onRangeSelected(90) }
+    }
+}
+
+@Composable
+fun ChartSection(state: DetailsUiState) {
+    if (state.isLoading) {
+        CircularProgressIndicator()
+    } else if (state.chartPoints.size < 2) {
+        Text(
+            "Zbyt mało danych do narysowania wykresu.\nHistoria buduje się codziennie.",
+            textAlign = TextAlign.Center,
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    } else {
+        if (state.chartPoints.isNotEmpty()) {
+            VicoChart(points = state.chartPoints, isUp = state.isUp)
+        }
+    }
+}
+
+@Composable
+fun DataSourceFooter() {
+    Text(
+        text = "Dane pobrane z: exchangerate-api.com",
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        textAlign = TextAlign.Center,
+        fontSize = 11.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+}
+
+@Composable
 fun TrendIcon(isUp: Boolean?) {
     val (icon, color) = when (isUp) {
-        true -> Icons.Default.TrendingUp to Color(0xFF4CAF50)
-        false -> Icons.Default.TrendingDown to Color(0xFFE53935)
-        null -> Icons.Default.TrendingFlat to Color.Gray
+        true -> Icons.Default.TrendingUp to TrendUp
+        false -> Icons.Default.TrendingDown to TrendDown
+        null -> Icons.Default.TrendingFlat to Neutral
     }
     Icon(imageVector = icon, contentDescription = "Trend", tint = color)
 }
@@ -173,12 +236,12 @@ fun InfoRow(label: String, value: String, isBold: Boolean = false) {
             .padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(text = label, fontSize = 14.sp, color = Color.Black)
+        Text(text = label, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
         Text(
             text = value,
             fontSize = 14.sp,
             fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal,
-            color = Color.Black
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
 }
@@ -191,6 +254,10 @@ fun RangeChip(label: String, isSelected: Boolean, onClick: () -> Unit) {
         onClick = onClick,
         label = { Text(label) },
         shape = RoundedCornerShape(16.dp),
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = MaterialTheme.colorScheme.primary,
+            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+        )
     )
 }
 
@@ -218,13 +285,13 @@ fun VicoChart(points: List<ChartPoint>, isUp: Boolean?) {
         }
 
     val lineColor = when (isUp) {
-        true -> CustomGreen
-        false -> CustomRed
-        null -> Color.Gray
+        true -> TrendUp
+        false -> TrendDown
+        null -> Neutral
     }
 
     val axisLabel = textComponent(
-        color = Color.Black,
+        color = MaterialTheme.colorScheme.onSurface,
         textSize = 10.sp
     )
 
@@ -256,8 +323,14 @@ fun VicoChart(points: List<ChartPoint>, isUp: Boolean?) {
         bottomAxis = rememberBottomAxis(
             label = axisLabel,
             valueFormatter = horizontalAxisValueFormatter,
-            labelRotationDegrees = -45f
+            labelRotationDegrees = -45f,
+            itemPlacer = AxisItemPlacer.Horizontal.default(
+                spacing = if (points.size > 40) 10 else if (points.size > 10) 5 else 1,
+                offset = 0,
+                shiftExtremeTicks = true
+            )
         ),
+        chartScrollSpec = rememberChartScrollSpec(isScrollEnabled = false),
         modifier = Modifier
             .fillMaxWidth()
             .height(280.dp)

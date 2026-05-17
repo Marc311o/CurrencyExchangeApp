@@ -31,10 +31,12 @@ class CurrencyRepository(
 
             if (response.isSuccessful) {
                 val body = response.body() ?: return false
+                Log.d("API", "Pobrano dane z API: $body")
 
                 val today = getToday()
+                val currentTime = System.currentTimeMillis()
                 val entities = body.conversion_rates.map { (code, rate) ->
-                    CurrencyEntity(code, today, rate, body.time_last_update_unix * 1000L)
+                    CurrencyEntity(code, today, rate, currentTime)
                 }
 
                 dao.insertRates(entities)
@@ -45,7 +47,7 @@ class CurrencyRepository(
                 false
             }
         } catch (e: Exception) {
-            Log.e("REPO", "Błąd sieci podczas pobierania danych z API", e)
+            Log.e("API", "Błąd sieci podczas pobierania danych z API", e)
             false
         }
     }
@@ -68,6 +70,6 @@ class CurrencyRepository(
         val limitDate = formatter.format(calendar.time)
 
         dao.deleteOldRates(limitDate)
-        Log.d("REPO", "Usunięto dane starsze niż: $limitDate (Zatrzymano $daysToKeep dni)")
+        Log.d("BAZA", "Usunięto dane starsze niż: $limitDate (Zatrzymano $daysToKeep dni)")
     }
 }

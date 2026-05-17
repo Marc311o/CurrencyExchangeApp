@@ -1,6 +1,5 @@
 package com.example.currencyexchange
 
-import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -17,10 +16,6 @@ import com.example.currencyexchange.ui.theme.CurrencyExchangeTheme
 import com.example.currencyexchange.worker.SyncRatesWorker
 import java.util.concurrent.TimeUnit
 import androidx.core.content.edit
-import androidx.lifecycle.lifecycleScope
-import com.example.currencyexchange.data.local.DatabaseSeeder
-import kotlinx.coroutines.launch
-
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,14 +44,11 @@ class MainActivity : ComponentActivity() {
         )
 
         val factory = AppViewModelFactory(repository, encryptedPrefs)
-
-        lifecycleScope.launch {
-            DatabaseSeeder.seedDatabase(database.currencyDao())
-        }
+        val connectivityObserver = com.example.currencyexchange.util.NetworkConnectivityObserver(applicationContext)
 
         setContent {
             CurrencyExchangeTheme {
-                MainScreen(factory = factory)
+                MainScreen(factory = factory, connectivityObserver = connectivityObserver)
             }
         }
 

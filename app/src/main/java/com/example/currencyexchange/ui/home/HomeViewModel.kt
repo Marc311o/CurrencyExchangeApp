@@ -8,9 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
 import java.util.Calendar
-import java.util.Date
 import java.util.Locale
 
 
@@ -49,63 +47,58 @@ class HomeViewModel(
         loadRates()
     }
 
-    private fun getDateString(daysAgo: Int): String {
-        val calendar = Calendar.getInstance()
-        calendar.add(Calendar.DAY_OF_YEAR, -daysAgo)
-        return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(calendar.time)
-    }
-
     fun refreshSettings() {
         _decimalPlaces.value = sharedPreferences.getInt("DECIMAL_PLACES", 4)
     }
 
     fun loadRates(showLoadingScreen: Boolean = true) {
         viewModelScope.launch {
-            _uiState.value = HomeUiState.Loading
-
             if (showLoadingScreen) {
                 _uiState.value = HomeUiState.Loading
             }
 
             try {
                 val userBaseCurrency = sharedPreferences.getString("BASE_CURRENCY", "PLN") ?: "PLN"
-                val today = getDateString(0)
-                val yesterday = getDateString(1)
-
+                
                 repository.refreshRatesFromApi()
 
-                val todayRates = repository.getRatesForSpecificDate(today)
-                val yesterdayRates = repository.getRatesForSpecificDate(yesterday)
+                val baseHistory = repository.dao.getHistoryForCurrency(userBaseCurrency, 2)
+                
+                if (baseHistory.isNotEmpty()) {
+                    val latestDate = baseHistory[0].dateString
+                    val previousDate = if (baseHistory.size > 1) baseHistory[1].dateString else latestDate
 
-                if (todayRates.isNotEmpty()) {
-                    val baseUsdRateToday = todayRates.find { it.currencyCode == userBaseCurrency }?.rateAgainstUSD ?: 1.0
-                    val baseUsdRateYesterday = yesterdayRates.find { it.currencyCode == userBaseCurrency }?.rateAgainstUSD ?: baseUsdRateToday
+                    val latestRates = repository.getRatesForSpecificDate(latestDate)
+                    val previousRates = repository.getRatesForSpecificDate(previousDate)
 
-                    val uiModels = todayRates.mapNotNull { todayEntity ->
-                        if (todayEntity.currencyCode == userBaseCurrency) return@mapNotNull null
+                    val baseUsdRateLatest = baseHistory[0].rateAgainstUSD
+                    val baseUsdRatePrevious = if (baseHistory.size > 1) baseHistory[1].rateAgainstUSD else baseUsdRateLatest
 
-                        val currentRate = baseUsdRateToday / todayEntity.rateAgainstUSD
+                    val uiModels = latestRates.mapNotNull { latestEntity ->
+                        if (latestEntity.currencyCode == userBaseCurrency) return@mapNotNull null
 
-                        val yesterdayEntity = yesterdayRates.find { it.currencyCode == todayEntity.currencyCode }
+                        val currentRate = baseUsdRateLatest / latestEntity.rateAgainstUSD
+
+                        val previousEntity = previousRates.find { it.currencyCode == latestEntity.currencyCode }
 
                         var changeValue = 0.0
                         var changePercent = 0.0
                         var isUp: Boolean? = null
 
-                        if (yesterdayEntity != null) {
-                            val yesterdayRate = baseUsdRateYesterday / yesterdayEntity.rateAgainstUSD
-                            changeValue = currentRate - yesterdayRate
-                            changePercent = if (yesterdayRate != 0.0) (changeValue / yesterdayRate) * 100 else 0.0
+                        if (previousEntity != null) {
+                            val previousRate = baseUsdRatePrevious / previousEntity.rateAgainstUSD
+                            changeValue = currentRate - previousRate
+                            changePercent = if (previousRate != 0.0) (changeValue / previousRate) * 100 else 0.0
 
                             isUp = when {
-                                changeValue > 0.0001 -> true
-                                changeValue < -0.0001 -> false
+                                changeValue > 0.000001 -> true
+                                changeValue < -0.000001 -> false
                                 else -> null
                             }
                         }
 
                         val currencyFullName = try {
-                            val currency = java.util.Currency.getInstance(todayEntity.currencyCode)
+                            val currency = java.util.Currency.getInstance(latestEntity.currencyCode)
                             val displayName = currency.getDisplayName(Locale.getDefault())
                             displayName.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
                         } catch (e: Exception) {
@@ -113,7 +106,7 @@ class HomeViewModel(
                         }
 
                         CurrencyUiModel(
-                            code = todayEntity.currencyCode,
+                            code = latestEntity.currencyCode,
                             name = currencyFullName,
                             rate = currentRate,
                             changeValue = changeValue,
@@ -125,10 +118,20 @@ class HomeViewModel(
                     val favorites = sharedPreferences.getStringSet("FAVORITES", setOf("EUR", "USD", "GBP", "CHF")) ?: setOf("EUR", "USD", "GBP", "CHF")
                     val filteredUiModels = uiModels.filter { favorites.contains(it.code) }
 
-                    val formattedTime = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-                        .format(
-                            Date(todayRates.firstOrNull()?.lastUpdateTime ?: System.currentTimeMillis())
-                        )
+                    val timestamp = latestRates.firstOrNull()?.lastUpdateTime ?: System.currentTimeMillis()
+                    val cal = Calendar.getInstance()
+                    cal.timeInMillis = timestamp
+                    
+                    val formattedTime = String.format(
+                        Locale.getDefault(),
+                        "%04d-%02d-%02d %02d:%02d:%02d",
+                        cal.get(Calendar.YEAR),
+                        cal.get(Calendar.MONTH) + 1,
+                        cal.get(Calendar.DAY_OF_MONTH),
+                        cal.get(Calendar.HOUR_OF_DAY),
+                        cal.get(Calendar.MINUTE),
+                        cal.get(Calendar.SECOND)
+                    )
 
                     _uiState.value = HomeUiState.Success(
                         isOnline = true,
