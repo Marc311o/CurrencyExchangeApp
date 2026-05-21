@@ -102,7 +102,6 @@ fun MainScreen(factory: AppViewModelFactory, connectivityObserver: ConnectivityO
                 
                 if (isTablet) {
                     if (selectedCurrencyCode != null) {
-                        // Tablet - wybrana waluta: Split-pane
                         Row(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                             Box(modifier = Modifier.weight(1f)) {
                                 HomeScreen(
@@ -127,7 +126,6 @@ fun MainScreen(factory: AppViewModelFactory, connectivityObserver: ConnectivityO
                             }
                         }
                     } else {
-                        // Tablet - brak wyboru: Jedna kolumna na środku
                         Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.Center) {
                             Box(modifier = Modifier.fillMaxWidth(if (configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) 0.6f else 1f)) {
                                 HomeScreen(
@@ -139,7 +137,6 @@ fun MainScreen(factory: AppViewModelFactory, connectivityObserver: ConnectivityO
                         }
                     }
                 } else {
-                    // Telefon: Zawsze najpierw sama lista (pion/poziom)
                     HomeScreen(
                         viewModel = homeVm,
                         onCurrencyClick = { code -> 

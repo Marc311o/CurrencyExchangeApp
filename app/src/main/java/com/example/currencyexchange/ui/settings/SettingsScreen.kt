@@ -27,7 +27,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+import android.content.Context
+import com.example.currencyexchange.worker.WorkManagerScheduler
+
 class SettingsViewModel(
+    private val context: Context,
     private val sharedPreferences: SharedPreferences,
     private val repository: CurrencyRepository
 ) : ViewModel() {
@@ -57,6 +61,7 @@ class SettingsViewModel(
     fun updateRefreshInterval(hours: Int) {
         sharedPreferences.edit().putInt("REFRESH_INTERVAL", hours).apply()
         _refreshInterval.value = hours
+        WorkManagerScheduler.schedule(context, hours)
     }
 
     fun updateDecimalPlaces(places: Int) {
