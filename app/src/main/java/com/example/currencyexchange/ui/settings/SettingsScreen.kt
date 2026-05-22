@@ -30,6 +30,11 @@ import kotlinx.coroutines.launch
 import android.content.Context
 import com.example.currencyexchange.worker.WorkManagerScheduler
 
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Key
+
 class SettingsViewModel(
     private val context: Context,
     private val sharedPreferences: SharedPreferences,
@@ -48,9 +53,17 @@ class SettingsViewModel(
     private val _decimalPlaces = MutableStateFlow(sharedPreferences.getInt("DECIMAL_PLACES", 4))
     val decimalPlaces = _decimalPlaces.asStateFlow()
 
+    private val _apiKey = MutableStateFlow(sharedPreferences.getString("API_KEY", "") ?: "")
+    val apiKey = _apiKey.asStateFlow()
+
     fun updateBaseCurrency(newCurrency: String) {
         sharedPreferences.edit().putString("BASE_CURRENCY", newCurrency).apply()
         _baseCurrency.value = newCurrency
+    }
+
+    fun updateApiKey(newKey: String) {
+        sharedPreferences.edit().putString("API_KEY", newKey).apply()
+        _apiKey.value = newKey
     }
 
     fun updateRetentionDays(days: Int) {
@@ -83,6 +96,14 @@ fun SettingsScreen(viewModel: SettingsViewModel, isOnline: Boolean = true) {
     val currentRetention by viewModel.retentionDays.collectAsState()
     val currentInterval by viewModel.refreshInterval.collectAsState()
     val currentDecimals by viewModel.decimalPlaces.collectAsState()
+    val currentApiKey by viewModel.apiKey.collectAsState()
+
+    var isEditingApiKey by remember { mutableStateOf(false) }
+    var apiKeyText by remember { mutableStateOf(currentApiKey) }
+
+    LaunchedEffect(currentApiKey) {
+        apiKeyText = currentApiKey
+    }
 
     var currencyDropdownExpanded by remember { mutableStateOf(false) }
     val availableCurrencies = listOf("PLN", "USD", "EUR", "GBP", "CHF", "JPY")
@@ -133,6 +154,28 @@ fun SettingsScreen(viewModel: SettingsViewModel, isOnline: Boolean = true) {
                         }
                     }
                 }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        SettingsGroup(title = "Klucz API") {
+                            ApiKeyField(
+                                apiKeyText = apiKeyText,
+                                isEditing = isEditingApiKey,
+                                onValueChange = { apiKeyText = it },
+                                onToggleEdit = {
+                                    if (isEditingApiKey) {
+                                        viewModel.updateApiKey(apiKeyText)
+                                    }
+                                    isEditingApiKey = !isEditingApiKey
+                                }
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.weight(1f))
+                }
             } else {
                 SettingsGroup(title = "Waluta bazowa") {
                     BaseCurrencySelector(currentBase, availableCurrencies) { viewModel.updateBaseCurrency(it) }
@@ -148,6 +191,20 @@ fun SettingsScreen(viewModel: SettingsViewModel, isOnline: Boolean = true) {
 
                 SettingsGroup(title = "Historia wykresów") {
                     RetentionSlider(currentRetention) { viewModel.updateRetentionDays(it) }
+                }
+
+                SettingsGroup(title = "Klucz API") {
+                    ApiKeyField(
+                        apiKeyText = apiKeyText,
+                        isEditing = isEditingApiKey,
+                        onValueChange = { apiKeyText = it },
+                        onToggleEdit = {
+                            if (isEditingApiKey) {
+                                viewModel.updateApiKey(apiKeyText)
+                            }
+                            isEditingApiKey = !isEditingApiKey
+                        }
+                    )
                 }
             }
 
@@ -171,6 +228,48 @@ fun SettingsScreen(viewModel: SettingsViewModel, isOnline: Boolean = true) {
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp
+            )
+        }
+    }
+}
+
+@Composable
+fun ApiKeyField(
+    apiKeyText: String,
+    isEditing: Boolean,
+    onValueChange: (String) -> Unit,
+    onToggleEdit: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        OutlinedTextField(
+            value = apiKeyText,
+            onValueChange = onValueChange,
+            modifier = Modifier.weight(1f),
+            readOnly = !isEditing,
+            singleLine = true,
+            shape = RoundedCornerShape(12.dp),
+            label = { Text("API Key") },
+            leadingIcon = { Icon(Icons.Default.Key, contentDescription = null) },
+            colors = OutlinedTextFieldDefaults.colors(
+                unfocusedContainerColor = if (isEditing) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                focusedContainerColor = MaterialTheme.colorScheme.surface
+            )
+        )
+        
+        IconButton(
+            onClick = onToggleEdit,
+            colors = IconButtonDefaults.iconButtonColors(
+                containerColor = if (isEditing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f),
+                contentColor = if (isEditing) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
+            )
+        ) {
+            Icon(
+                imageVector = if (isEditing) Icons.Default.Save else Icons.Default.Edit,
+                contentDescription = if (isEditing) "Zapisz" else "Edytuj"
             )
         }
     }

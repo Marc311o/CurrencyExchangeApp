@@ -52,8 +52,21 @@ class HomeViewModel(
 
     private var isCurrentlyOnline: Boolean = true
 
+    private val preferenceChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        when (key) {
+            "BASE_CURRENCY", "FAVORITES" -> loadRates(showLoadingScreen = false)
+            "DECIMAL_PLACES" -> refreshSettings()
+        }
+    }
+
     init {
+        sharedPreferences.registerOnSharedPreferenceChangeListener(preferenceChangeListener)
         loadRates()
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        sharedPreferences.unregisterOnSharedPreferenceChangeListener(preferenceChangeListener)
     }
 
     fun updateConnectivityStatus(isOnline: Boolean) {

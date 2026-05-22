@@ -38,7 +38,31 @@ class DetailsViewModel(
     private val _uiState = MutableStateFlow(DetailsUiState())
     val uiState: StateFlow<DetailsUiState> = _uiState.asStateFlow()
 
+    private var currentTargetCode: String = ""
+    private var currentDays: Int = 30
+
+    private val preferenceChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        when (key) {
+            "BASE_CURRENCY", "DECIMAL_PLACES" -> {
+                if (currentTargetCode.isNotEmpty()) {
+                    loadDetails(currentTargetCode, currentDays)
+                }
+            }
+        }
+    }
+
+    init {
+        sharedPreferences.registerOnSharedPreferenceChangeListener(preferenceChangeListener)
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        sharedPreferences.unregisterOnSharedPreferenceChangeListener(preferenceChangeListener)
+    }
+
     fun loadDetails(targetCode: String, days: Int = 30) {
+        currentTargetCode = targetCode
+        currentDays = days
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, currencyCode = targetCode)
 
