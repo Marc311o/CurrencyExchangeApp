@@ -38,101 +38,117 @@ fun HomeScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val decimalPlaces by viewModel.decimalPlaces.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
         viewModel.refreshSettings()
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(top = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        when (val currentState = state) {
+    LaunchedEffect(isOnline) {
+        viewModel.updateConnectivityStatus(isOnline)
+    }
 
-            is HomeUiState.Loading -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                }
-            }
+    LaunchedEffect(viewModel.errorEvents) {
+        viewModel.errorEvents.collect { message ->
+            snackbarHostState.showSnackbar(message)
+        }
+    }
 
-            is HomeUiState.Error -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = currentState.message,
-                            color = MaterialTheme.colorScheme.error,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(16.dp)
-                        )
-                        Button(onClick = { viewModel.loadRates(true) }) {
-                            Text("Spróbuj ponownie")
-                        }
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(top = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            when (val currentState = state) {
+
+                is HomeUiState.Loading -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                     }
                 }
-            }
 
-            is HomeUiState.Success -> {
-                var isRefreshing by remember { mutableStateOf(false) }
-
-                LaunchedEffect(currentState) {
-                    isRefreshing = false
-                }
-
-                val pullRefreshState = rememberPullRefreshState(
-                    refreshing = isRefreshing,
-                    onRefresh = {
-                        isRefreshing = true
-                        viewModel.loadRates(showLoadingScreen = false)
-                    }
-                )
-
-                Column(modifier = Modifier.fillMaxSize()) {
-                    Text(
-                        text = if (isOnline) "Online" else "Offline",
-                        color = if (isOnline) TrendUp else TrendDown,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = currentState.lastUpdateText,
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.fillMaxWidth(),
-                        textAlign = TextAlign.Center
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .pullRefresh(pullRefreshState)
-                    ) {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(bottom = 16.dp)
-                        ) {
-                            items(currentState.rates) { currency ->
-                                CurrencyCard(
-                                    currency = currency,
-                                    baseCurrency = currentState.baseCurrency,
-                                    decimalPlaces = decimalPlaces,
-                                    onClick = { onCurrencyClick(currency.code) }
-                                )
+                is HomeUiState.Error -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = currentState.message,
+                                color = MaterialTheme.colorScheme.error,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(16.dp)
+                            )
+                            Button(onClick = { viewModel.loadRates(true) }) {
+                                Text("Spróbuj ponownie")
                             }
                         }
+                    }
+                }
 
-                        PullRefreshIndicator(
-                            refreshing = isRefreshing,
-                            state = pullRefreshState,
-                            modifier = Modifier.align(Alignment.TopCenter),
-                            contentColor = MaterialTheme.colorScheme.primary
+                is HomeUiState.Success -> {
+                    var isRefreshing by remember { mutableStateOf(false) }
+
+                    LaunchedEffect(currentState) {
+                        isRefreshing = false
+                    }
+
+                    val pullRefreshState = rememberPullRefreshState(
+                        refreshing = isRefreshing,
+                        onRefresh = {
+                            isRefreshing = true
+                            viewModel.loadRates(showLoadingScreen = false)
+                        }
+                    )
+
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Text(
+                            text = if (isOnline) "Online" else "Offline",
+                            color = if (isOnline) TrendUp else TrendDown,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
                         )
+                        Text(
+                            text = currentState.lastUpdateText,
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .pullRefresh(pullRefreshState)
+                        ) {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(bottom = 16.dp)
+                            ) {
+                                items(currentState.rates) { currency ->
+                                    CurrencyCard(
+                                        currency = currency,
+                                        baseCurrency = currentState.baseCurrency,
+                                        decimalPlaces = decimalPlaces,
+                                        onClick = { onCurrencyClick(currency.code) }
+                                    )
+                                }
+                            }
+
+                            PullRefreshIndicator(
+                                refreshing = isRefreshing,
+                                state = pullRefreshState,
+                                modifier = Modifier.align(Alignment.TopCenter),
+                                contentColor = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 }
             }
@@ -141,7 +157,12 @@ fun HomeScreen(
 }
 
 @Composable
-fun CurrencyCard(currency: CurrencyUiModel, baseCurrency: String, decimalPlaces: Int, onClick: () -> Unit) {
+fun CurrencyCard(
+    currency: CurrencyUiModel,
+    baseCurrency: String,
+    decimalPlaces: Int,
+    onClick: () -> Unit
+) {
 
     val dynamicFormat = "%.${decimalPlaces}f %s"
 
@@ -170,7 +191,11 @@ fun CurrencyCard(currency: CurrencyUiModel, baseCurrency: String, decimalPlaces:
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(text = "Aktualny kurs", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    text = "Aktualny kurs",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Text(
                     text = String.format(
                         Locale.getDefault(),
@@ -187,13 +212,17 @@ fun CurrencyCard(currency: CurrencyUiModel, baseCurrency: String, decimalPlaces:
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(text = "Zmiana", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    text = "Zmiana",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 val sign = if (currency.changeValue > 0) "+" else ""
                 Text(
                     text = "${sign}${
                         String.format(
                             Locale.getDefault(),
-                            "%.2f",
+                            "%.${decimalPlaces}f",
                             currency.changeValue
                         )
                     } $baseCurrency (${sign}${
@@ -214,7 +243,11 @@ fun CurrencyCard(currency: CurrencyUiModel, baseCurrency: String, decimalPlaces:
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "Trend", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    text = "Trend",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 val (icon, color) = when (currency.isUp) {
                     true -> Icons.AutoMirrored.Filled.TrendingUp to TrendUp
                     false -> Icons.AutoMirrored.Filled.TrendingDown to TrendDown

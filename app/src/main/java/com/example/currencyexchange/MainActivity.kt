@@ -43,7 +43,7 @@ class MainActivity : ComponentActivity() {
             sharedPreferences = encryptedPrefs
         )
 
-        val factory = AppViewModelFactory(repository, encryptedPrefs)
+        val factory = AppViewModelFactory(applicationContext, repository, encryptedPrefs)
         val connectivityObserver = com.example.currencyexchange.util.NetworkConnectivityObserver(applicationContext)
 
         setContent {
@@ -52,11 +52,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        val syncRequest = PeriodicWorkRequestBuilder<SyncRatesWorker>(12, TimeUnit.HOURS).build()
-        WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
-            "DailyRateSync",
-            ExistingPeriodicWorkPolicy.KEEP,
-            syncRequest
-        )
+        val interval = encryptedPrefs.getInt("REFRESH_INTERVAL", 12)
+        com.example.currencyexchange.worker.WorkManagerScheduler.schedule(applicationContext, interval)
     }
 }

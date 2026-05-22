@@ -38,7 +38,31 @@ class DetailsViewModel(
     private val _uiState = MutableStateFlow(DetailsUiState())
     val uiState: StateFlow<DetailsUiState> = _uiState.asStateFlow()
 
+    private var currentTargetCode: String = ""
+    private var currentDays: Int = 30
+
+    private val preferenceChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        when (key) {
+            "BASE_CURRENCY", "DECIMAL_PLACES" -> {
+                if (currentTargetCode.isNotEmpty()) {
+                    loadDetails(currentTargetCode, currentDays)
+                }
+            }
+        }
+    }
+
+    init {
+        sharedPreferences.registerOnSharedPreferenceChangeListener(preferenceChangeListener)
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        sharedPreferences.unregisterOnSharedPreferenceChangeListener(preferenceChangeListener)
+    }
+
     fun loadDetails(targetCode: String, days: Int = 30) {
+        currentTargetCode = targetCode
+        currentDays = days
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, currencyCode = targetCode)
 
@@ -85,12 +109,16 @@ class DetailsViewModel(
                         cal.get(java.util.Calendar.MINUTE)
                     )
 
+                    val decimalPlaces = sharedPreferences.getInt("DECIMAL_PLACES", 4)
+                    val rateFormat = "%.${decimalPlaces}f"
+                    val changeFormat = "%+.${decimalPlaces}f %s (%+.2f%%)"
+
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         currencyName = fullName,
                         baseCurrency = userBaseCurrency,
-                        currentRate = String.format(Locale.getDefault(), "%.4f", latest.value),
-                        changeText = String.format(Locale.getDefault(), "%+.2f %s (%+.2f%%)", diff, userBaseCurrency, percent),
+                        currentRate = String.format(Locale.getDefault(), rateFormat, latest.value),
+                        changeText = String.format(Locale.getDefault(), changeFormat, diff, userBaseCurrency, percent),
                         isUp = if (diff > 0.000001) true else if (diff < -0.000001) false else null,
                         chartPoints = points,
                         lastUpdate = formattedTime

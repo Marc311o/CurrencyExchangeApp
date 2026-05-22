@@ -9,7 +9,10 @@ import com.example.currencyexchange.ui.settings.SettingsViewModel
 import com.example.currencyexchange.ui.edit.EditListViewModel
 import com.example.currencyexchange.ui.home.HomeViewModel
 
+import android.content.Context
+
 class AppViewModelFactory(
+    private val context: Context,
     private val repository: CurrencyRepository,
     private val sharedPreferences: SharedPreferences
 ) : ViewModelProvider.Factory {
@@ -24,7 +27,7 @@ class AppViewModelFactory(
                 DetailsViewModel(repository, sharedPreferences) as T
 
             modelClass.isAssignableFrom(SettingsViewModel::class.java) ->
-                SettingsViewModel(sharedPreferences, repository) as T
+                SettingsViewModel(context, sharedPreferences, repository) as T
 
             modelClass.isAssignableFrom(EditListViewModel::class.java) ->
                 EditListViewModel(sharedPreferences) as T

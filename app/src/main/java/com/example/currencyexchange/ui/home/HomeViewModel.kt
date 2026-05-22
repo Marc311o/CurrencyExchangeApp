@@ -11,6 +11,9 @@ import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.Locale
 
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 
 data class CurrencyUiModel(
     val code: String,
@@ -21,15 +24,16 @@ data class CurrencyUiModel(
     val isUp: Boolean?
 )
 
-sealed interface HomeUiState {
-    object Loading : HomeUiState
+sealed class HomeUiState {
+    object Loading : HomeUiState()
     data class Success(
         val isOnline: Boolean,
         val lastUpdateText: String,
         val baseCurrency: String,
         val rates: List<CurrencyUiModel>
-    ) : HomeUiState
-    data class Error(val message: String) : HomeUiState
+    ) : HomeUiState()
+
+    data class Error(val message: String) : HomeUiState()
 }
 
 class HomeViewModel(
@@ -43,8 +47,30 @@ class HomeViewModel(
     private val _decimalPlaces = MutableStateFlow(sharedPreferences.getInt("DECIMAL_PLACES", 4))
     val decimalPlaces = _decimalPlaces.asStateFlow()
 
+    private val _errorEvents = MutableSharedFlow<String>()
+    val errorEvents: SharedFlow<String> = _errorEvents.asSharedFlow()
+
+    private var isCurrentlyOnline: Boolean = true
+
+    private val preferenceChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        when (key) {
+            "BASE_CURRENCY", "FAVORITES" -> loadRates(showLoadingScreen = false)
+            "DECIMAL_PLACES" -> refreshSettings()
+        }
+    }
+
     init {
+        sharedPreferences.registerOnSharedPreferenceChangeListener(preferenceChangeListener)
         loadRates()
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        sharedPreferences.unregisterOnSharedPreferenceChangeListener(preferenceChangeListener)
+    }
+
+    fun updateConnectivityStatus(isOnline: Boolean) {
+        isCurrentlyOnline = isOnline
     }
 
     fun refreshSettings() {
@@ -57,12 +83,19 @@ class HomeViewModel(
                 _uiState.value = HomeUiState.Loading
             }
 
+            if (!isCurrentlyOnline && !showLoadingScreen) {
+                _errorEvents.emit("Brak połączenia z internetem. Nie można odświeżyć kursów.")
+            }
+
             try {
                 val userBaseCurrency = sharedPreferences.getString("BASE_CURRENCY", "PLN") ?: "PLN"
-                
-                repository.refreshRatesFromApi()
+
+                if (isCurrentlyOnline) {
+                    repository.refreshRatesFromApi()
+                }
 
                 val baseHistory = repository.dao.getHistoryForCurrency(userBaseCurrency, 2)
+
                 
                 if (baseHistory.isNotEmpty()) {
                     val latestDate = baseHistory[0].dateString
